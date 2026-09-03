@@ -1,0 +1,31 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/support_db}
+    username: ${SPRING_DATASOURCE_USERNAME:support_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:support_pass}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  jwt:
+    # Base64 encoded 32-byte dev secret. Override in production.
+    secret: ${APP_JWT_SECRET:ZGV2LXNlY3JldC1jaGFuZ2UtdGhpcy1pbi1wcm9kdWN0aW9uLTEyMw==}
+    expiration-seconds: ${APP_JWT_EXPIRATION_SECONDS:3600}
