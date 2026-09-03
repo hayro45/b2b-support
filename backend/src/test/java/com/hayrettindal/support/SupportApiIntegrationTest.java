@@ -51,7 +51,7 @@ class SupportApiIntegrationTest {
                 .content(objectMapper.writeValueAsString(Map.of(
                     "email", "agent@demo.local",
                     "password", "demo12345"
-                )))
+                ))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.accessToken").isNotEmpty())
             .andReturn()
