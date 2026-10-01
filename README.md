@@ -4,9 +4,9 @@
 
 A small-team support desk built with Java 21, Spring Boot, PostgreSQL, React and TypeScript. It demonstrates tenant-scoped authorization, a ticket lifecycle, transactional audit history, database migrations and single-server operations.
 
-[Public demo](https://support.hayrettindal.com) · [Architecture](docs/architecture/mvp-implementation-plan.md) · [Deployment and recovery](docs/runbook/ubuntu-single-server-deploy.md) · [Backlog](docs/backlog/sprint-backlog.md)
+[Hosted instance](https://support.hayrettindal.com) · [Architecture](docs/architecture/mvp-implementation-plan.md) · [Deployment and recovery](docs/runbook/ubuntu-single-server-deploy.md) · [Backlog](docs/backlog/sprint-backlog.md)
 
-The public demo is a separate deployment; changes in this checkout are not automatically live. Use fictional data only in the public demo.
+The hosted instance requires a private owner account; public demo credentials work only locally. Changes in this checkout are not automatically live. Use fictional data only. [Production security verification](docs/verification/2026-10-01-production.md) records the deployed revision and checks.
 
 ![Agent workspace with assignment, status actions and conversation](docs/screenshots/agent-workspace.jpg)
 
