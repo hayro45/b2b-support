@@ -120,3 +120,18 @@ docker compose --env-file .env.production -f infra/docker-compose.yml -f infra/d
 ```
 
 Watch disk usage, backup success, certificate renewal and application health. Update supported runtime/container patches regularly. Do not remove volumes or prune saved rollback images as a routine deployment step.
+# Existing production deployment (1 October 2026)
+
+The existing host keeps `/opt/b2b-support` intact as the legacy checkout, including
+its untracked operator documents. Releases live in `/opt/b2b-support-releases/`;
+`/opt/b2b-support-current` points at the active release. Production Compose uses
+project name `infra`, retaining the existing `infra_postgres_data` volume.
+The CD workflow uses the current-release path and explicitly retains that project
+name. Do not run Compose with a new project name against existing data.
+
+Production owner credentials are private, not in this repo. The one-time
+`infra/scripts/prepare-production.py` creates mode-0600 env/access files and
+refuses to overwrite them or replace an existing owner's password. JWT rotation
+invalidates existing tokens. Changing the env database password alone does NOT
+rotate an existing PostgreSQL user's password.
+

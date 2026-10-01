@@ -68,6 +68,13 @@ jobs:
       - name: Verify container builds
         run: docker compose -f infra/docker-compose.yml build
 
+      - name: Scan production images for fixable high and critical vulnerabilities
+        run: |
+          docker volume create support-ci-trivy-cache
+          for image in support-backend:local support-frontend:local; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v support-ci-trivy-cache:/root/.cache/ aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 image --image-src docker --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$image"
+          done
+
   cd:
     if: github.event_name == 'workflow_dispatch' && inputs.deploy && github.ref == 'refs/heads/main'
     needs: ci
@@ -101,7 +108,8 @@ jobs:
           command_timeout: 20m
           script: |
             set -eu
-            cd /opt/b2b-support
+            cd /opt/b2b-support-current
+            export COMPOSE_PROJECT_NAME=infra
             test -f .env.production
             test -z "$(git status --porcelain)"
             git fetch origin main
