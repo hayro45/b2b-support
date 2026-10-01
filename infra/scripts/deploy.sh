@@ -14,7 +14,7 @@ test -f "$env_file"
 compose=(docker compose --env-file "$env_file" -f "$repo_dir/infra/docker-compose.yml" -f "$repo_dir/infra/docker-compose.prod.yml")
 "${compose[@]}" config --quiet
 # Build first: a build failure leaves running containers untouched.
-"${compose[@]}" build --pull backend frontend
+"${compose[@]}" build --pull postgres backend frontend
 if [[ -n $("${compose[@]}" ps -q postgres) ]]; then
   bash "$repo_dir/infra/scripts/backup.sh"
 fi

@@ -120,7 +120,8 @@ docker compose --env-file .env.production -f infra/docker-compose.yml -f infra/d
 ```
 
 Watch disk usage, backup success, certificate renewal and application health. Update supported runtime/container patches regularly. Do not remove volumes or prune saved rollback images as a routine deployment step.
-# Existing production deployment (1 October 2026)
+
+## Existing production deployment (1 October 2026)
 
 The existing host keeps `/opt/b2b-support` intact as the legacy checkout, including
 its untracked operator documents. Releases live in `/opt/b2b-support-releases/`;
@@ -135,3 +136,7 @@ refuses to overwrite them or replace an existing owner's password. JWT rotation
 invalidates existing tokens. Changing the env database password alone does NOT
 rotate an existing PostgreSQL user's password.
 
+The PostgreSQL image retains upstream PostgreSQL 16 and its entrypoint/data
+layout. It installs Alpine's native `su-exec` and uses it for the entrypoint's
+privilege drop instead of upstream's Go-based `gosu`. Test both fresh database
+initialization and reopening an existing volume when changing this image.

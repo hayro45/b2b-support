@@ -9,5 +9,5 @@ env_file=${SUPPORT_ENV_FILE:-"$repo_dir/.env.production"}
 test -f "$env_file"
 docker image inspect support-backend:previous support-frontend:previous > /dev/null
 export SUPPORT_IMAGE_TAG=previous
-docker compose --env-file "$env_file" -f "$repo_dir/infra/docker-compose.yml" -f "$repo_dir/infra/docker-compose.prod.yml" up -d --no-build --wait --wait-timeout 180 backend frontend
+docker compose --env-file "$env_file" -f "$repo_dir/infra/docker-compose.yml" -f "$repo_dir/infra/docker-compose.prod.yml" up -d --no-deps --no-build --wait --wait-timeout 180 backend frontend
 echo 'Previous application images are healthy. Database schema/data were not rolled back.'

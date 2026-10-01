@@ -68,10 +68,17 @@ jobs:
       - name: Verify container builds
         run: docker compose -f infra/docker-compose.yml build
 
+      - name: Verify PostgreSQL initialization and restart
+        run: |
+          docker compose -p support-ci -f infra/docker-compose.yml up -d --no-build --wait --wait-timeout 180
+          docker compose -p support-ci -f infra/docker-compose.yml exec -T postgres psql -U support_user -d support_db -c 'SELECT count(*) FROM tickets;'
+          docker compose -p support-ci -f infra/docker-compose.yml restart postgres
+          docker compose -p support-ci -f infra/docker-compose.yml up -d --no-build --wait --wait-timeout 180
+
       - name: Scan production images for fixable high and critical vulnerabilities
         run: |
           docker volume create support-ci-trivy-cache
-          for image in support-backend:local support-frontend:local; do
+          for image in support-backend:local support-frontend:local support-postgres:local; do
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v support-ci-trivy-cache:/root/.cache/ aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 image --image-src docker --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$image"
           done
 

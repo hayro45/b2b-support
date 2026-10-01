@@ -1,6 +1,9 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: support-postgres:${SUPPORT_IMAGE_TAG:-local}
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
     container_name: support-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-support_db}
