@@ -4,4 +4,7 @@ FROM postgres:16-alpine
 # without shipping the old Go runtime bundled in upstream's gosu helper.
 RUN apk upgrade --no-cache \
     && apk add --no-cache su-exec \
-    && ln -sf /sbin/su-exec /usr/local/bin/gosu
+    && rm /usr/local/bin/gosu
+# A separate layer records the removed Go binary before installing the alias;
+# scanners must not retain the deleted binary's cached package metadata.
+RUN ln -s /sbin/su-exec /usr/local/bin/gosu
