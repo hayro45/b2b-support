@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Only the public development JWT fixture; production explicitly rejects it"
+regexTarget = "secret"
+regexes = ['''^ZGV2LXNlY3JldC1jaGFuZ2UtdGhpcy1pbi1wcm9kdWN0aW9uLTEyMw==$''']

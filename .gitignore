@@ -8,6 +8,17 @@ Thumbs.db
 
 # Env
 .env
+.env.production
+infra/backups/
+.env.*
+!.env.example
+!infra/.env.production.example
+*.dump
+*.pem
+*.key
+Career_Command_Centre/
+output/
+tmp/
 
 # Java
 backend/target/
