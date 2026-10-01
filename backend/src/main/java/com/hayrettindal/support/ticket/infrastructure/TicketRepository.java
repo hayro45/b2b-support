@@ -7,8 +7,13 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
 
-public interface TicketRepository extends JpaRepository<TicketEntity, UUID> {
+public interface TicketRepository extends JpaRepository<TicketEntity, UUID>, JpaSpecificationExecutor<TicketEntity> {
+
+    @Query(value = "SELECT nextval('ticket_number_seq')", nativeQuery = true)
+    long nextTicketNumber();
 
     Page<TicketEntity> findByOrganizationIdAndStatus(UUID organizationId, TicketStatus status, Pageable pageable);
 

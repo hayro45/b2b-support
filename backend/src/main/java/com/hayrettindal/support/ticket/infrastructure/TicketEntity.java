@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -19,6 +20,9 @@ public class TicketEntity {
 
     @Id
     private UUID id;
+
+    @Version
+    private long version;
 
     @Column(name = "organization_id", nullable = false)
     private UUID organizationId;

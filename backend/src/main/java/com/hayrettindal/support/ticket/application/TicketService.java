@@ -25,7 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -33,6 +34,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 @Service
+@Transactional(readOnly = true)
 public class TicketService {
 
     private static final Map<TicketStatus, Set<TicketStatus>> TRANSITIONS = new EnumMap<>(TicketStatus.class);
@@ -65,6 +67,7 @@ public class TicketService {
         this.auditLogRepository = auditLogRepository;
     }
 
+    @Transactional
     public TicketResponse create(CreateTicketRequest request, UUID organizationId, UUID requesterUserId) {
         TicketEntity entity = new TicketEntity();
         entity.setOrganizationId(organizationId);
@@ -75,23 +78,21 @@ public class TicketService {
         entity.setStatus(TicketStatus.OPEN);
         entity.setRequesterUserId(requesterUserId);
 
-        TicketEntity saved = ticketRepository.save(entity);
+        TicketEntity saved = ticketRepository.saveAndFlush(entity);
         writeAudit(organizationId, requesterUserId, "TICKET_CREATED", "TICKET", saved.getId(), "{\"status\":\"OPEN\"}");
         return map(saved);
     }
 
     public Page<TicketResponse> list(UUID organizationId, TicketStatus status, TicketPriority priority, String q, Pageable pageable) {
-        Page<TicketEntity> page;
-        if (status != null) {
-            page = ticketRepository.findByOrganizationIdAndStatus(organizationId, status, pageable);
-        } else if (priority != null) {
-            page = ticketRepository.findByOrganizationIdAndPriority(organizationId, priority, pageable);
-        } else if (q != null && !q.isBlank()) {
-            page = ticketRepository.findByOrganizationIdAndTitleContainingIgnoreCase(organizationId, q.trim(), pageable);
-        } else {
-            page = ticketRepository.findByOrganizationId(organizationId, pageable);
+        Specification<TicketEntity> filter = (root, query, cb) -> cb.equal(root.get("organizationId"), organizationId);
+        if (status != null) filter = filter.and((root, query, cb) -> cb.equal(root.get("status"), status));
+        if (priority != null) filter = filter.and((root, query, cb) -> cb.equal(root.get("priority"), priority));
+        if (q != null && !q.isBlank()) {
+            if (q.length() > 180) throw new IllegalArgumentException("Search must be at most 180 characters");
+            String term = q.trim().toLowerCase(java.util.Locale.ROOT).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+            filter = filter.and((root, query, cb) -> cb.like(cb.lower(root.get("title")), "%" + term + "%", '\\'));
         }
-
+        Page<TicketEntity> page = ticketRepository.findAll(filter, pageable);
         return page.map(this::map);
     }
 
@@ -101,6 +102,7 @@ public class TicketService {
         return map(entity);
     }
 
+    @Transactional
     public TicketResponse updateStatus(UUID id, UUID organizationId, UUID changedByUserId, TicketStatus targetStatus) {
         TicketEntity entity = ticketRepository.findByIdAndOrganizationId(id, organizationId)
             .orElseThrow(() -> new NotFoundException("Ticket not found: " + id));
@@ -111,7 +113,7 @@ public class TicketService {
         }
 
         entity.setStatus(targetStatus);
-        TicketEntity saved = ticketRepository.save(entity);
+        TicketEntity saved = ticketRepository.saveAndFlush(entity);
         writeAudit(
             organizationId,
             changedByUserId,
@@ -123,6 +125,7 @@ public class TicketService {
         return map(saved);
     }
 
+    @Transactional
     public TicketResponse assign(UUID ticketId, UUID organizationId, UUID changedByUserId, UUID assigneeUserId) {
         TicketEntity ticket = ticketRepository.findByIdAndOrganizationId(ticketId, organizationId)
             .orElseThrow(() -> new NotFoundException("Ticket not found: " + ticketId));
@@ -133,10 +136,13 @@ public class TicketService {
         if (!assignee.getOrganizationId().equals(organizationId)) {
             throw new IllegalArgumentException("Assignee is not in the same organization");
         }
+        if (!assignee.isActive() || assignee.getRole() == UserRole.CUSTOMER) {
+            throw new IllegalArgumentException("Assignee must be an active agent or admin");
+        }
 
         UUID previousAssigneeId = ticket.getAssigneeUserId();
         ticket.setAssigneeUserId(assigneeUserId);
-        TicketEntity saved = ticketRepository.save(ticket);
+        TicketEntity saved = ticketRepository.saveAndFlush(ticket);
         writeAssignmentHistory(saved.getId(), previousAssigneeId, assigneeUserId, changedByUserId);
         writeAudit(
             organizationId,
@@ -149,6 +155,7 @@ public class TicketService {
         return map(saved);
     }
 
+    @Transactional
     public TicketCommentResponse addComment(
         UUID ticketId,
         UUID organizationId,
@@ -185,18 +192,11 @@ public class TicketService {
         ticketRepository.findByIdAndOrganizationId(ticketId, organizationId)
             .orElseThrow(() -> new NotFoundException("Ticket not found: " + ticketId));
 
-        List<TicketCommentEntity> comments = ticketCommentRepository.findByTicketIdOrderByCreatedAtDesc(
-            ticketId,
-            PageRequest.of(0, Math.max(1, Math.min(100, size)))
-        );
-
-        if (role == UserRole.CUSTOMER) {
-            return comments.stream()
-                .filter(comment -> !comment.isInternalNote())
-                .map(this::mapComment)
-                .toList();
-        }
-
+        if (size < 1 || size > 100) throw new IllegalArgumentException("Size must be between 1 and 100");
+        Pageable pageable = PageRequest.of(0, size);
+        List<TicketCommentEntity> comments = role == UserRole.CUSTOMER
+            ? ticketCommentRepository.findByTicketIdAndInternalNoteFalseOrderByCreatedAtDesc(ticketId, pageable)
+            : ticketCommentRepository.findByTicketIdOrderByCreatedAtDesc(ticketId, pageable);
         return comments.stream().map(this::mapComment).toList();
     }
 
@@ -276,8 +276,7 @@ public class TicketService {
     }
 
     private String generateTicketNo() {
-        int random = ThreadLocalRandom.current().nextInt(100000, 999999);
         LocalDate date = LocalDate.now();
-        return "TCK-" + date.getYear() + "-" + random;
+        return "TCK-" + date.getYear() + "-" + ticketRepository.nextTicketNumber();
     }
 }

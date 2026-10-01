@@ -52,13 +52,18 @@ public class TicketController {
         @RequestParam(defaultValue = "createdAt,desc") String sort,
         @AuthenticationPrincipal AuthenticatedUser user
     ) {
-        String[] sortParts = sort.split(",");
-        String sortField = sortParts.length > 0 ? sortParts[0] : "createdAt";
-        Sort.Direction direction = sortParts.length > 1 && sortParts[1].equalsIgnoreCase("asc")
-            ? Sort.Direction.ASC
-            : Sort.Direction.DESC;
+        if (page < 0 || page > 10000 || size < 1 || size > 100) {
+            throw new IllegalArgumentException("Page must be 0..10000 and size 1..100");
+        }
+        String[] sortParts = sort.split(",", -1);
+        if (sortParts.length != 2 || !java.util.Set.of("createdAt", "updatedAt", "ticketNo", "title", "status", "priority").contains(sortParts[0])
+            || !(sortParts[1].equalsIgnoreCase("asc") || sortParts[1].equalsIgnoreCase("desc"))) {
+            throw new IllegalArgumentException("Invalid sort field or direction");
+        }
+        String sortField = sortParts[0];
+        Sort.Direction direction = Sort.Direction.fromString(sortParts[1]);
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField).and(Sort.by("id")));
         return ticketService.list(user.organizationId(), status, priority, q, pageable);
     }
 

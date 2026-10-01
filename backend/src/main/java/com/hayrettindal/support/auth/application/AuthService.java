@@ -10,31 +10,45 @@ import java.util.UUID;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.hayrettindal.support.auth.api.AgentResponse;
+import com.hayrettindal.support.auth.domain.UserRole;
 
 @Service
+@Transactional(readOnly = true)
 public class AuthService {
 
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final LoginThrottle loginThrottle;
+    private final boolean production;
 
     public AuthService(
         AppUserRepository appUserRepository,
         PasswordEncoder passwordEncoder,
-        JwtService jwtService
+        JwtService jwtService,
+        LoginThrottle loginThrottle,
+        org.springframework.core.env.Environment environment
     ) {
         this.appUserRepository = appUserRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.loginThrottle = loginThrottle;
+        this.production = environment.matchesProfiles("prod");
     }
 
     public LoginResponse login(LoginRequest request) {
-        AppUserEntity user = appUserRepository.findByEmailIgnoreCase(request.email())
+        String email = request.email().trim().toLowerCase(java.util.Locale.ROOT);
+        loginThrottle.attempt(email);
+        AppUserEntity user = appUserRepository.findByEmailIgnoreCase(email)
             .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
-        if (!user.isActive() || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        if (!user.isActive() || (production && user.getEmail().toLowerCase(java.util.Locale.ROOT).endsWith("@demo.local"))
+            || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new BadCredentialsException("Invalid credentials");
         }
+        loginThrottle.success(email);
 
         String token = jwtService.generateToken(
             user.getId(),
@@ -56,5 +70,11 @@ public class AuthService {
             user.getFullName(),
             user.getRole()
         );
+    }
+
+    public java.util.List<AgentResponse> agents(UUID organizationId) {
+        return appUserRepository.findByOrganizationIdAndActiveTrueAndRoleInOrderByFullNameAsc(
+            organizationId, java.util.List.of(UserRole.AGENT, UserRole.ADMIN))
+            .stream().map(u -> new AgentResponse(u.getId(), u.getFullName(), u.getEmail())).toList();
     }
 }

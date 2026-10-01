@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.core.env.Environment;
 
 @Service
 public class JwtService {
@@ -21,8 +22,13 @@ public class JwtService {
 
     public JwtService(
         @Value("${app.jwt.secret}") String secret,
-        @Value("${app.jwt.expiration-seconds:3600}") long expirationSeconds
+        @Value("${app.jwt.expiration-seconds:3600}") long expirationSeconds,
+        Environment environment
     ) {
+        if (secret.isBlank() || (environment.matchesProfiles("prod") && secret.equals("ZGV2LXNlY3JldC1jaGFuZ2UtdGhpcy1pbi1wcm9kdWN0aW9uLTEyMw=="))) {
+            throw new IllegalArgumentException("A private APP_JWT_SECRET is required in production");
+        }
+        if (expirationSeconds < 60 || expirationSeconds > 86400) throw new IllegalArgumentException("JWT expiry must be 60..86400 seconds");
         this.signingKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
         this.expirationSeconds = expirationSeconds;
     }

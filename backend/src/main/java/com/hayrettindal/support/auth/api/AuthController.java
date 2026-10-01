@@ -32,4 +32,9 @@ public class AuthController {
     public MeResponse me(@AuthenticationPrincipal AuthenticatedUser user) {
         return authService.me(user.userId());
     }
+
+    @GetMapping("/agents")
+    public java.util.List<AgentResponse> agents(@AuthenticationPrincipal AuthenticatedUser user) {
+        return authService.agents(user.organizationId());
+    }
 }

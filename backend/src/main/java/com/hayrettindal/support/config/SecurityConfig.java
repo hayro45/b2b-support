@@ -2,7 +2,7 @@ package com.hayrettindal.support.config;
 
 import java.util.List;
 import org.springframework.http.MediaType;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,7 +38,9 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/login").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/auth/agents", "/api/v1/tickets/*/assignment-history").hasAnyRole("AGENT", "ADMIN")
                 .requestMatchers("/actuator/health", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/actuator/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/v1/tickets/**").hasAnyRole("CUSTOMER", "AGENT", "ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/v1/tickets/**").hasAnyRole("CUSTOMER", "AGENT", "ADMIN")
                 .requestMatchers(HttpMethod.PATCH, "/api/v1/tickets/**").hasAnyRole("AGENT", "ADMIN")

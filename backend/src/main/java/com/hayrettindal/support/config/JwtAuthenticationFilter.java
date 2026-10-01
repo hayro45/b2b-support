@@ -3,6 +3,7 @@ package com.hayrettindal.support.config;
 import com.hayrettindal.support.auth.application.AuthenticatedUser;
 import com.hayrettindal.support.auth.application.JwtService;
 import com.hayrettindal.support.auth.domain.UserRole;
+import com.hayrettindal.support.auth.infrastructure.AppUserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -24,9 +25,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final AppUserRepository users;
+    private final boolean production;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, AppUserRepository users, org.springframework.core.env.Environment environment) {
         this.jwtService = jwtService;
+        this.users = users;
+        this.production = environment.matchesProfiles("prod");
     }
 
     @Override
@@ -45,8 +50,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Claims claims = jwtService.parse(token);
             UUID userId = UUID.fromString((String) claims.get("uid"));
             UUID orgId = UUID.fromString((String) claims.get("org"));
-            UserRole role = UserRole.valueOf((String) claims.get("role"));
-            String email = claims.getSubject();
+            var user = users.findById(userId).filter(u -> u.isActive() && u.getOrganizationId().equals(orgId)
+                && !(production && u.getEmail().toLowerCase(java.util.Locale.ROOT).endsWith("@demo.local")))
+                .orElseThrow(() -> new IllegalArgumentException("User unavailable"));
+            UserRole role = user.getRole();
+            String email = user.getEmail();
 
             AuthenticatedUser principal = new AuthenticatedUser(userId, orgId, email, role);
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
